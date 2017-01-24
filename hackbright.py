@@ -5,9 +5,9 @@ projects, and the grades students receive in class projects.
 """
 
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
+from flask_sqlalchemy import SQLAlchemy as sqla
 
-db = SQLAlchemy()
+db = sqla()
 
 
 def connect_to_db(app):
@@ -38,22 +38,63 @@ def make_new_student(first_name, last_name, github):
     Given a first name, last name, and GitHub account, add student to the
     database and print a confirmation message.
     """
-    pass
+
+    QUERY = """
+            INSERT INTO students
+                VALUES (:first_name, :last_name, :github)
+            """
+
+    db.session.execute(QUERY, {'first_name': first_name,
+                               'last_name': last_name,
+                               'github': github})
+
+    db.session.commit()
+
+    print "Successfully added student: %s %s" % (first_name, last_name)
 
 
 def get_project_by_title(title):
     """Given a project title, print information about the project."""
-    pass
+
+    QUERY = """
+            SELECT description, max_grade FROM projects
+            WHERE title = :title
+            """
+
+    db_cursor = db.session.execute(QUERY, {'title': title})
+    row = db_cursor.fetchone()
+    print "Project %s: %s\nMax Grade: %s" % (title, row[0], row[1])
 
 
 def get_grade_by_github_title(github, title):
     """Print grade student received for a project."""
-    pass
+
+    QUERY = """
+            SELECT grade FROM grades
+            WHERE student_github = :github AND project_title = :title
+            """
+
+    db_cursor = db.session.execute(QUERY, {'github': github,
+                                           'title': title})
+
+    row = db_cursor.fetchone()
+    print "User %s scored %s on project %s" % (github, row[0], title)
 
 
 def assign_grade(github, title, grade):
     """Assign a student a grade on an assignment and print a confirmation."""
-    pass
+
+    QUERY = """
+            INSERT INTO grades (student_github, project_title, grade)
+            VALUES (:github, :title, :grade)
+            """
+
+    db.session.execute(QUERY, {'github': github, 'title': title,
+                               'grade': grade})
+
+    db.session.commit()
+
+    print "Grade %s added for user %s on project %s." % (grade, github, title)
 
 
 def handle_input():
@@ -78,6 +119,18 @@ def handle_input():
             first_name, last_name, github = args   # unpack!
             make_new_student(first_name, last_name, github)
 
+        elif command == "new_grade":
+            github, project, grade = args
+            assign_grade(github, project, grade)
+
+        elif command == "project_by_title":
+            title = args[0]
+            get_project_by_title(title)
+
+        elif command == "grade_by_github_title":
+            github, title = args
+            get_grade_by_github_title(github, title)
+
         else:
             if command != "quit":
                 print "Invalid Entry. Try again."
@@ -86,6 +139,6 @@ if __name__ == "__main__":
     app = Flask(__name__)
     connect_to_db(app)
 
-    # handle_input()
+    handle_input()
 
     db.session.close()
